@@ -17,7 +17,9 @@
 #![deny(warnings)]
 #![feature(btree_range)]
 #![feature(collections_bound)]
+#![feature(alloc_system)]
 extern crate btrfs;
+extern crate alloc_system;
 
 use btrfs::linux::{get_file_extent_map_for_path};
 use std::fs::*;

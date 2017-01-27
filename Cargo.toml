@@ -3,5 +3,12 @@ name = "ffcnt"
 version = "0.1.0"
 authors = ["The8472"]
 
+[profile.release]
+lto = true
+opt-level = "s"
+panic = "abort"
+debug = false
+
+
 [dependencies]
 btrfs = "1.2.1"
