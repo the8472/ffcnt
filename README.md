@@ -27,6 +27,17 @@ $ filefrag /mnt/test/
 /mnt/test/: FIBMAP unsupported
 ```
 
+## Binary
+
+You can find prebuilt x86_64-linux-glibc binaries without debug information under [releases](../../releases).
+For troubleshooting and other environments you'll have to build your own.
+
+## Build
+
+* clone repo
+* install rust nightly and cargo
+* `cargo build --release` 
+
 
 ## Unscientific Benchmark
 
