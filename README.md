@@ -10,9 +10,12 @@ This greatly reduces disk seeks.
 ## Requirements
 
 * Linux
-* A filesystem that supports the `fiemap` ioctl on directories. Otherwise no speedup over `find` will be achieved, but counting will still work. Tested with Ext4, others may work too (Feedback welcome!)
+* A filesystem that supports the `fiemap` ioctl on directories.<br>
+Currently **ext4** is known to provide that. If you know other ones, please report!<br>
+Incompatible filesystems will work but gain no speedup over `find`.
 
-You can test support the `filefrag` tool.  
+
+You can test filesystem support with the `filefrag` tool.  
 
 ```
 ## supported
