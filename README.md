@@ -1,6 +1,6 @@
 # ffcnt 
 
-Fast file counting for spinning rust in rust.
+Fast file counting for spinning rust, in rust.
 
 ffcnt's sole purpose is to provide a faster alternative to `find /some/path/ -type f | wc -l`.
 It achieves that by looking up the extent map *of directories* and reordering recursion into the directory tree by the physical offset of the first extent of each directory.
@@ -12,7 +12,7 @@ This greatly reduces disk seeks.
 * Linux
 * A filesystem that supports the `fiemap` ioctl on directories. Otherwise no speedup over `find` will be achieved, but counting will still work. Tested with Ext4, others may work too (Feedback welcome!)
 
-You can test support the `filefrag` utility.  
+You can test support the `filefrag` tool.  
 
 ```
 ## supported
@@ -48,7 +48,7 @@ user	0m0.557s
 sys	0m3.860s
 ```
 
-Busy system with mixed read/write workload:
+Busy system with mixed read/write workload. Differences in file counts arose due to writes happening in the meantime:
 
 ```
 # echo 3 > /proc/sys/vm/drop_caches ; time ffcnt . 
@@ -66,7 +66,7 @@ user	0m3.212s
 sys	0m12.044s
 ```
 
-Both tests were performed on HDDs
+Both tests were performed on HDDs and the files were spread over 65536 directories with a nesting depth of 2, i.e. a branching factor of 256.
 
 
 ## Ideas
