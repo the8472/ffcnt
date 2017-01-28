@@ -2,6 +2,19 @@
 name = "ffcnt"
 version = "0.1.0"
 authors = ["The8472"]
+description = "Fast file counting on HDDs"
+repository = "https://github.com/the8472/ffcnt"
+readme = "README.md"
+categories = ["command-line-utilities", "filesystem"]
+license = "GPL-3.0"
+
+
+include = [
+    "**/*.rs",
+    "README.md",
+    "LICENCE",
+    "Cargo.toml",
+]
 
 [profile.release]
 lto = true
