@@ -1,3 +1,5 @@
+[![Version](https://img.shields.io/crates/v/ffcnt.svg)](https://crates.io/crates/ffcnt)
+
 # ffcnt 
 
 Fast file counting for spinning rust, in rust.

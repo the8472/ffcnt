@@ -23,89 +23,125 @@ extern crate alloc_system;
 
 use btrfs::linux::{get_file_extent_map_for_path};
 use std::fs::*;
-//use std::os::linux::fs::MetadataExt;
+//use std::os::unix::fs::DirEntryExt;
 use std::path::PathBuf;
+use std::collections::VecDeque;
 use std::collections::BTreeMap;
 use std::collections::Bound::Included;
 use std::error::Error;
 use std::io::Write;
 use std::path::Path;
 
+struct ToScan {
+    phy_sorted : BTreeMap<u64, PathBuf>,
+    unordered : VecDeque<PathBuf>,
+    cursor: u64
+}
 
-fn scan_dirs(p : &Path) -> std::io::Result<u64> {
-    let mut cnt = 0;
+impl ToScan {
 
-    let mut phy_sorted : BTreeMap<u64, PathBuf> = std::collections::BTreeMap::new();
-    let mut unordered : Vec<PathBuf> = vec![];
-    let mut cursor = 0;
+    fn new() -> ToScan {
+        ToScan{phy_sorted: BTreeMap::new(), unordered: VecDeque::new(), cursor: 0}
+    }
 
-    unordered.push(p.to_owned());
+    fn is_empty(&self) -> bool {
+        self.phy_sorted.is_empty() && self.unordered.is_empty()
+    }
 
+    fn get_next(&mut self) -> Option<PathBuf> {
+        if !self.unordered.is_empty() {
+            return self.unordered.pop_front();
+        }
 
-    while !phy_sorted.is_empty() || !unordered.is_empty() {
+        let next_key = self.phy_sorted.range((Included(&self.cursor), Included(&std::u64::MAX))).next().map(|(k,_)| *k);
+        if let Some(k) = next_key {
+            self.cursor = k;
+            return self.phy_sorted.remove(&k);
+        }
 
-        let next = {
-            let next_key = phy_sorted.range((Included(&cursor), Included(&std::u64::MAX))).next().map(|(k,_)| *k);
-            if let Some(k) = next_key  {
-                phy_sorted.remove(&k)
-            } else {
-                unordered.pop()
-            }
-        };
+        None
+    }
 
-        match next {
-            Some(p) => {
-
-                match read_dir(&p) {
-                    Ok(dir_iter) => {
-                        for de in dir_iter.filter_map(|de| de.ok()) {
-                            let entry = de.path();
-                            let meta = de.file_type().unwrap();
-                            if meta.is_file() {
-                                cnt+=1;
-                            }
-                            if !meta.is_dir() {
-                                continue;
-                            }
-
-                            //print!{"{} {} ", entry.to_string_lossy(), meta.st_ino()};
-                            match get_file_extent_map_for_path(&entry) {
-                                Ok(ref extents) if !extents.is_empty() => {
-                                    //println!("{:?}", extents);
-                                    if let Some(old) = phy_sorted.insert(extents[0].physical, entry) {
-                                        unordered.push(old);
-                                    }
-                                },
-                                _ => {
-                                    unordered.push(entry);
-                                }
-                            }
-                        }
-                    }
-                    Err(open_err) => {
-                        writeln!(std::io::stderr(), "skipping {} reason: {}", &p.to_string_lossy(), open_err.description())?;
-                    }
+    fn add(&mut self, to_add : PathBuf, pos : Option<u64>) {
+        match pos {
+            Some(idx) => {
+                if let Some(old) = self.phy_sorted.insert(idx, to_add) {
+                    self.unordered.push_back(old);
                 }
-
-
-            },
+            }
             None => {
-                cursor = 0;
+                self.unordered.push_back(to_add);
             }
         }
     }
 
+    fn scan(&mut self) -> std::io::Result<u64> {
+        let mut cnt = 0;
 
-    Ok(cnt)
+        while !self.is_empty() {
+            let next = self.get_next();
+
+            match next {
+                Some(p) => {
+                    match read_dir(&p) {
+                        Ok(dir_iter) => {
+                            for de in dir_iter.filter_map(|de| de.ok()) {
+                                let entry = de.path();
+                                let meta = de.file_type().unwrap();
+                                if meta.is_file() {
+                                    cnt+=1;
+                                }
+                                if !meta.is_dir() {
+                                    continue;
+                                }
+
+                                //print!{"{} {} ", entry.to_string_lossy(), meta.st_ino()};
+                                match get_file_extent_map_for_path(&entry) {
+                                    Ok(ref extents) if !extents.is_empty() => {
+                                        self.add(entry, Some(extents[0].physical));
+                                    },
+                                    _ => {
+                                        //self.add(entry, Some(de.ino()))
+                                        self.add(entry, None)
+                                    }
+                                }
+                            }
+                        }
+                        Err(open_err) => {
+                            writeln!(std::io::stderr(), "skipping {} reason: {}", &p.to_string_lossy(), open_err.description())?;
+                        }
+                    }
+                },
+                None => {
+                    self.cursor = 0;
+                }
+            }
+        }
+
+        Ok(cnt)
+    }
+}
+
+
+fn scan_dirs(paths : Vec<PathBuf>) -> std::io::Result<u64> {
+
+    let mut dirs = ToScan::new();
+
+    for p in paths {
+        dirs.add(p, None);
+    }
+
+    dirs.scan()
 }
 
 fn process_args() -> std::io::Result<u64> {
-    let root = if let Some(str) = std::env::args().nth(1) {
-        Path::new(&str).to_owned()
-    } else {
-        std::env::current_dir()?
-    };
-    scan_dirs(&root)
+    let mut starting_points = std::env::args().skip(1).map(|s| Path::new(&s).to_owned()).collect::<Vec<_>>();
+
+    if starting_points.is_empty() {
+        starting_points.push(std::env::current_dir()?);
+    }
+
+    scan_dirs(starting_points)
 }
 
 
@@ -113,6 +149,10 @@ fn main() {
 
     match process_args() {
         Ok(cnt) => {println!("{}", cnt);}
-        Err(e) => {writeln!(std::io::stderr(),"{}", e.description()).unwrap();}
+        Err(e) => {
+            writeln!(std::io::stderr(),"{}", e.description()).unwrap();
+            std::io::stderr().flush().unwrap();
+            std::process::exit(1);
+        }
     };
 }
