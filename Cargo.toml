@@ -1,14 +1,12 @@
 [package]
 name = "ffcnt"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["The8472"]
 description = "Fast file counting on HDDs"
 repository = "https://github.com/the8472/ffcnt"
 readme = "README.md"
 categories = ["command-line-utilities", "filesystem"]
 license = "GPL-3.0"
-
-
 
 include = [
     "**/*.rs",
@@ -26,4 +24,5 @@ debug = false
 
 [dependencies]
 btrfs = "1.2.1"
-# crossbeam = "0.2.10"
+clap = "2.20"
+derive-error = "0.0.3"

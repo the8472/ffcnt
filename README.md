@@ -4,9 +4,11 @@
 
 Fast file counting for spinning rust, in rust.
 
-ffcnt's sole purpose is to provide a faster alternative to `find /some/path/ -type f | wc -l`.
+ffcnt's purpose is to provide a faster alternative to `find /some/path/ -type f | wc -l`.
 It achieves that by looking up the extent map *of directories* and reordering recursion into the directory tree by the physical offset of the first extent of each directory.
 This greatly reduces disk seeks.
+
+It can also sum file sizes of plain files in a directory tree. This is optimized by calling `fstat()` on the paths in inode order instead of directory order under the assumption that inode tables are laid out by id. This is the case in the ext file system family.
 
 
 ## Requirements
@@ -89,4 +91,3 @@ Both tests were performed on HDDs and the files were spread over 65536 directori
 
 * 1 thread per block device in tree
 * filter by name
-* optimized du
