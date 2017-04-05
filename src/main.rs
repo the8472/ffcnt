@@ -172,7 +172,7 @@ fn scan_dirs(paths : Vec<PathBuf>, size: bool) -> std::io::Result<CntResult> {
 fn process_args() -> std::result::Result<CntResult, CliError> {
     let matches = App::new("fast file counting")
         .version(crate_version!())
-        .arg(Arg::with_name("size").short("s").required(false).takes_value(false)).help("sum apparent length of plain files")
+        .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of plain files"))
         .arg(Arg::with_name("dirs").index(1).multiple(true).required(false).help("directories to traverse [default: cwd]"))
         .get_matches();
 
