@@ -1,6 +1,6 @@
 [package]
 name = "ffcnt"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["The8472"]
 description = "Fast file counting on HDDs"
 repository = "https://github.com/the8472/ffcnt"
