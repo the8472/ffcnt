@@ -7,9 +7,9 @@ Fast file counting and listing for spinning rust, in rust.
 ffcnt's purpose is to provide a faster alternatives to some common filesystem operations as a frontend for the [platter-walk](https://github.com/the8472/platter-walk) crate.
 
 
-`ffcnt --type f` replaces `find -type f | wc -l`
-`ffcnt --type f --ls --leaf-order content` replaces `find -type f` and returns files in optimized order for reading 
-`ffcnt -s` replaces `du -s --apparent-size`
+* `ffcnt --type f` replaces `find -type f | wc -l`
+* `ffcnt --type f --ls --leaf-order content` replaces `find -type f` and returns files in optimized order for reading 
+* `ffcnt -s` replaces `du -s --apparent-size`
 
 
 
