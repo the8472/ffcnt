@@ -2,13 +2,15 @@
 
 # ffcnt 
 
-Fast file counting for spinning rust, in rust.
+Fast file counting and listing for spinning rust, in rust.
 
-ffcnt's purpose is to provide a faster alternative to `find /some/path/ -type f | wc -l`.
-It achieves that by looking up the extent map *of directories* and reordering recursion into the directory tree by the physical offset of the first extent of each directory.
-This greatly reduces disk seeks.
+ffcnt's purpose is to provide a faster alternatives to some common filesystem operations as a frontend for the [platter-walk](https://github.com/the8472/platter-walk) crate.
 
-It can also sum file sizes of plain files in a directory tree. This is optimized by calling `fstat()` on the paths in inode order instead of directory order under the assumption that inode tables are laid out by id. This is the case in the ext file system family.
+
+`ffcnt --type f` replaces `find -type f | wc -l`
+`ffcnt --type f --ls --leaf-order content` replaces `find -type f` and returns files in optimized order for reading 
+`ffcnt -s` replaces `du -s --apparent-size`
+
 
 
 ## Requirements
@@ -44,8 +46,26 @@ For troubleshooting and other environments you'll have to build your own.
 * clone repo
 * install liblzo2 and libz (build-time dependencies) 
 * install rust nightly and cargo
-* `cargo build --release` 
+* `cargo build --release`
 
+## Usage
+
+```
+    ffcnt [FLAGS] [OPTIONS] [dirs]...
+
+FLAGS:
+    -h, --help       Prints help information
+        --ls         list files
+    -s               sum apparent length of matched files. Implies --leaf-order inode.
+    -V, --version    Prints version information
+
+OPTIONS:
+        --leaf-order <ord>    optimize order for listing/stat/reads [values: inode, content, dentry]
+        --type <type>         filter type [values: f, l, d, s, b, c, p]
+
+ARGS:
+    <dirs>...    directories to traverse [default: cwd]
+```
 
 ## Unscientific Benchmark
 
@@ -91,4 +111,3 @@ Both tests were performed on HDDs and the files were spread over 65536 directori
 ## Ideas
 
 * 1 thread per block device in tree
-* filter by name

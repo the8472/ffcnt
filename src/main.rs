@@ -16,22 +16,19 @@
 //   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 #![deny(warnings)]
 #![feature(alloc_system)]
-extern crate btrfs;
 extern crate alloc_system;
 #[macro_use] extern crate clap;
 #[macro_use] extern crate derive_error;
+extern crate platter_walk;
+extern crate isatty;
 
-use btrfs::linux::{get_file_extent_map_for_path};
-use std::fs::*;
-use std::os::unix::fs::DirEntryExt;
-use std::path::PathBuf;
-use std::collections::VecDeque;
-use std::collections::BTreeMap;
-use std::collections::Bound::Included;
 use std::error::Error;
 use std::io::Write;
 use std::path::Path;
 use clap::{Arg, App};
+use platter_walk::*;
+use std::fs::FileType;
+use std::os::unix::fs::FileTypeExt;
 
 
 #[derive(Debug, Error)]
@@ -39,153 +36,123 @@ enum CliError {
     Io(std::io::Error)
 }
 
-struct ToScan {
-    phy_sorted : BTreeMap<u64, PathBuf>,
-    unordered : VecDeque<PathBuf>,
-    cursor: u64,
-    stat: bool,
+#[derive(Copy, Clone)]
+enum FileTypeMatcher {
+    Dir,
+    Regular,
+    Symlink,
+    Block,
+    Char,
+    Pipe,
+    Socket
 }
 
-type CntResult = (u64, u64);
+use FileTypeMatcher::*;
 
-impl ToScan {
+impl FileTypeMatcher {
+    fn from(c : char) -> FileTypeMatcher {
+        match c {
+            'b' => Block,
+            'c' => Char,
+            'd' => Dir,
+            'p' => Pipe,
+            'f' => Regular,
+            'l' => Symlink,
+            's' => Socket,
+            _ => panic!("invalid input")
 
-    fn new() -> ToScan {
-        ToScan{phy_sorted: BTreeMap::new(), unordered: VecDeque::new(), cursor: 0, stat: false}
-    }
-
-    fn is_empty(&self) -> bool {
-        self.phy_sorted.is_empty() && self.unordered.is_empty()
-    }
-
-    fn get_next(&mut self) -> Option<PathBuf> {
-        if !self.unordered.is_empty() {
-            return self.unordered.pop_front();
-        }
-
-        let next_key = self.phy_sorted.range((Included(&self.cursor), Included(&std::u64::MAX))).next().map(|(k,_)| *k);
-        if let Some(k) = next_key {
-            self.cursor = k;
-            return self.phy_sorted.remove(&k);
-        }
-
-        None
-    }
-
-    fn add(&mut self, to_add : PathBuf, pos : Option<u64>) {
-        match pos {
-            Some(idx) => {
-                if let Some(old) = self.phy_sorted.insert(idx, to_add) {
-                    self.unordered.push_back(old);
-                }
-            }
-            None => {
-                self.unordered.push_back(to_add);
-            }
         }
     }
 
-    fn scan(mut self) -> std::io::Result<CntResult> {
-        let stat = self.stat;
-        let mut fcnt = 0;
-        let mut szsum = 0;
-        let mut to_stat = vec![];
-
-        while !self.is_empty() {
-            let next = self.get_next();
-
-            match next {
-                Some(p) => {
-                    match read_dir(&p) {
-                        Ok(dir_iter) => {
-                            for de in dir_iter.filter_map(|de| de.ok()) {
-                                let meta = de.file_type().unwrap();
-                                if meta.is_file() {
-                                    fcnt+=1;
-
-                                    if stat {
-                                        to_stat.push((de.ino(), de.path()));
-                                    }
-
-                                }
-
-                                if meta.is_dir() {
-                                    let entry = de.path();
-                                    //print!{"{} {} ", entry.to_string_lossy(), meta.st_ino()};
-                                    match get_file_extent_map_for_path(&entry) {
-                                        Ok(ref extents) if !extents.is_empty() => {
-                                            self.add(entry, Some(extents[0].physical));
-                                        },
-                                        _ => {
-                                            // TODO: inode-order option? depth-first?
-                                            //self.add(entry, Some(de.ino()))
-                                            //cnt += self.scan()?;
-                                            self.add(entry, None);
-
-                                        }
-                                    }
-
-
-                                }
-
-                            }
-
-                        }
-                        Err(open_err) => {
-                            writeln!(std::io::stderr(), "skipping {} reason: {}", &p.to_string_lossy(), open_err.description())?;
-                        }
-                    }
-                },
-                None => {
-                    self.cursor = 0;
-                }
-            }
-
-            if stat && (to_stat.len() > 5000 || self.is_empty()) {
-                to_stat.sort_by_key({|e| e.0});
-                for e in to_stat.iter() {
-                    szsum += e.1.metadata()?.len();
-                }
-                to_stat.clear();
-
-            }
+    fn is(&self, ft: &FileType) -> bool {
+        match *self {
+            Block => ft.is_block_device(),
+            Char => ft.is_char_device(),
+            Pipe => ft.is_fifo(),
+            Socket => ft.is_socket(),
+            Symlink => ft.is_symlink(),
+            Regular => ft.is_file(),
+            Dir => ft.is_dir(),
         }
-
-        Ok((fcnt, szsum))
-
     }
 }
 
 
-fn scan_dirs(paths : Vec<PathBuf>, size: bool) -> std::io::Result<CntResult> {
+type Counts = (u64, u64);
 
-    let mut dirs = ToScan::new();
-    dirs.stat = size;
 
-    for p in paths {
-        dirs.add(p, None);
-    }
-
-    dirs.scan()
-}
-
-fn process_args() -> std::result::Result<CntResult, CliError> {
+fn process_args() -> std::result::Result<Counts, CliError> {
     let matches = App::new("fast file counting")
         .version(crate_version!())
-        .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of plain files"))
+        .arg(Arg::with_name("ord").long("leaf-order").required(false).takes_value(true).possible_values(&["inode","content", "dentry"]).help("optimize order for listing/stat/reads"))
+        .arg(Arg::with_name("type").long("type").required(false).takes_value(true).possible_values(&["f", "l", "d", "s","b","c", "p"]).help("filter type"))
+        .arg(Arg::with_name("list").long("ls").required(false).takes_value(false).help("list files"))
+        .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of matched files. Implies --leaf-order inode."))
         .arg(Arg::with_name("dirs").index(1).multiple(true).required(false).help("directories to traverse [default: cwd]"))
         .get_matches();
 
     let mut starting_points = matches.values_of_os("dirs").map(|it| it.map(Path::new).map(Path::to_owned).collect()).unwrap_or(vec![]);
     let want_size = matches.is_present("size");
+    let list = matches.is_present("list");
+    let type_filter = matches.value_of("type").map(|t| FileTypeMatcher::from(t.chars().next().unwrap()));
 
     if starting_points.is_empty() {
         starting_points.push(std::env::current_dir()?);
     }
 
-    let result = scan_dirs(starting_points, want_size)?;
+    let mut dir_scanner = ToScan::new();
 
-    println!("files: {}", result.0);
+    if want_size {
+        dir_scanner.set_order(Order::Inode);
+    }
+
+    match matches.value_of("ord") {
+        Some("inode") => {dir_scanner.set_order(Order::Inode);},
+        Some("content") => {dir_scanner.set_order(Order::Content);}
+        Some("dentry") => {dir_scanner.set_order(Order::Dentries);}
+        _ => {}
+    };
+
+    for path in starting_points {
+        dir_scanner.add_root(path)?;
+    }
+
+    if let Some(ref tf) = type_filter {
+        let owned = tf.clone();
+        dir_scanner.set_prefilter(Box::new(move |_,ft| owned.is(ft)));
+    }
+
+    let mut result = (0,0);
+
+    for entry in dir_scanner {
+        match entry  {
+            Ok(e) => {
+                if let Some(ref tf) = type_filter {
+                    if !tf.is(&e.file_type()) {
+                        continue;
+                    }
+                }
+
+                if list {
+                    println!("{}", e.path().to_string_lossy());
+                }
+
+                result.0 += 1;
+                if want_size {
+                    result.1 += e.path().metadata().unwrap().len();
+                }
+            }
+            Err(e) => {
+                writeln!(std::io::stderr(),"{}", e.description()).unwrap();
+            }
+        }
+
+    }
+
+    if !(list && isatty::stdout_isatty()) {
+        println!("files: {}", result.0);
+    }
+
     if want_size {
         println!("bytes: {}", result.1);
     }
