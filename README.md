@@ -45,7 +45,7 @@ For troubleshooting and other environments you'll have to build your own.
 
 * clone repo
 * install liblzo2 and libz (build-time dependencies) 
-* install rust nightly and cargo
+* install rust and cargo
 * `cargo build --release`
 
 ## Usage
