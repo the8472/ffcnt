@@ -31,7 +31,7 @@ debug = false
 clap = "2.20"
 derive-error = "0.0.3"
 isatty = "0.1.3"
-platter-walk = "0.1.0"
+platter-walk = "0.1.2"
 
 [features]
 system_alloc = []

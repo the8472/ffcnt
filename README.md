@@ -51,13 +51,17 @@ For troubleshooting and other environments you'll have to build your own.
 ## Usage
 
 ```
+fast file counting
+
+USAGE:
     ffcnt [FLAGS] [OPTIONS] [dirs]...
 
 FLAGS:
-    -h, --help       Prints help information
-        --ls         list files
-    -s               sum apparent length of matched files. Implies --leaf-order inode.
-    -V, --version    Prints version information
+    -h, --help        Prints help information
+        --ls          list files
+        --prefetch    attempt to prefetch directory indices from underlying mount device. requires read permission on device
+    -s                sum apparent length of matched files. Implies --leaf-order inode.
+    -V, --version     Prints version information
 
 OPTIONS:
         --leaf-order <ord>    optimize order for listing/stat/reads [values: inode, content, dentry]
@@ -72,19 +76,26 @@ ARGS:
 Idle system:
 
 ```
-# echo 3 > /proc/sys/vm/drop_caches ; time ffcnt .
-196608
+$ echo 3 > /proc/sys/vm/drop_caches ; time find /tmp/foo/ -type f | wc -l
+826536
 
-real	0m23.889s
-user	0m1.233s
-sys	0m2.127s
+real	0m52.289s
+user	0m0.680s
+sys	0m4.361s
 
-# echo 3 > /proc/sys/vm/drop_caches ; time find . -type f | wc -l
-196608
+$ echo 3 > /proc/sys/vm/drop_caches ; time ffcnt /tmp/foo/ --type f
+files: 826536
 
-real	2m31.562s
-user	0m0.557s
-sys	0m3.860s
+real	0m17.072s
+user	0m1.230s
+sys	0m2.190s
+
+$ echo 3 > /proc/sys/vm/drop_caches ; time sudo ffcnt /tmp/foo/ --prefetch --type f
+files: 826536
+
+real	0m13.311s
+user	0m2.029s
+sys	0m1.440s
 ```
 
 Busy system with mixed read/write workload. Differences in file counts arose due to writes happening in the meantime:
@@ -105,7 +116,9 @@ user	0m3.212s
 sys	0m12.044s
 ```
 
-Both tests were performed on HDDs and the files were spread over 65536 directories with a nesting depth of 2, i.e. a branching factor of 256.
+Both tests were performed on HDDs with a directory structure of at least 2 nesting levels and a branching factor of 256 
+
+
 
 
 ## Ideas

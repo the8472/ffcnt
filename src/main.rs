@@ -90,11 +90,13 @@ fn process_args() -> std::result::Result<Counts, CliError> {
         .arg(Arg::with_name("list").long("ls").required(false).takes_value(false).help("list files"))
         .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of matched files. Implies --leaf-order inode."))
         .arg(Arg::with_name("dirs").index(1).multiple(true).required(false).help("directories to traverse [default: cwd]"))
+        .arg(Arg::with_name("prefetch").long("prefetch").takes_value(false).required(false).help("attempt to prefetch directory indices from underlying mount device. requires read permission on device"))
         .get_matches();
 
     let mut starting_points = matches.values_of_os("dirs").map(|it| it.map(Path::new).map(Path::to_owned).collect()).unwrap_or(vec![]);
     let want_size = matches.is_present("size");
     let list = matches.is_present("list");
+    let prefetch = matches.is_present("prefetch");
     let type_filter = matches.value_of("type").map(|t| FileTypeMatcher::from(t.chars().next().unwrap()));
 
     if starting_points.is_empty() {
@@ -102,6 +104,8 @@ fn process_args() -> std::result::Result<Counts, CliError> {
     }
 
     let mut dir_scanner = ToScan::new();
+
+    dir_scanner.prefetch_dirs(prefetch);
 
     if want_size {
         dir_scanner.set_order(Order::Inode);
@@ -115,7 +119,12 @@ fn process_args() -> std::result::Result<Counts, CliError> {
     };
 
     for path in starting_points {
-        dir_scanner.add_root(path)?;
+        if path.is_absolute() {
+            dir_scanner.add_root(path)?;
+        } else {
+            dir_scanner.add_root(path.canonicalize()?)?;
+        }
+
     }
 
     if let Some(ref tf) = type_filter {
