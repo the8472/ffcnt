@@ -15,9 +15,6 @@
 //   along with this program; if not, write to the Free Software Foundation,
 //   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 #![deny(warnings)]
-#![cfg_attr(feature = "system_alloc", feature(alloc_system))]
-#[cfg(feature = "system_alloc")]
-extern crate alloc_system;
 #[macro_use] extern crate clap;
 #[macro_use] extern crate derive_error;
 extern crate platter_walk;
@@ -149,7 +146,13 @@ fn process_args() -> std::result::Result<Counts, CliError> {
 
                 result.0 += 1;
                 if want_size {
-                    result.1 += e.path().metadata().unwrap().len();
+                    result.1 += match e.path().metadata() {
+                        Ok(m) => m.len(),
+                        Err(err) => {
+                            eprintln!("could not stat {}: {}", e.path().to_string_lossy(), err.to_string());
+                            continue;
+                        }
+                    };
                 }
             }
             Err(e) => {
