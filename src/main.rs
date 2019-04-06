@@ -146,6 +146,9 @@ fn process_args() -> std::result::Result<Counts, CliError> {
 
                 result.0 += 1;
                 if want_size {
+                    if e.file_type().is_symlink() {
+                        continue;
+                    }
                     result.1 += match e.path().metadata() {
                         Ok(m) => m.len(),
                         Err(err) => {
