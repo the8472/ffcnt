@@ -51,7 +51,7 @@ For troubleshooting and other environments you'll have to build your own.
 ## Usage
 
 ```
-fast file counting
+fast file counting 0.3.0
 
 USAGE:
     ffcnt [FLAGS] [OPTIONS] [dirs]...
@@ -60,7 +60,7 @@ FLAGS:
     -h, --help        Prints help information
         --ls          list files
         --prefetch    attempt to prefetch directory indices from underlying mount device. requires read permission on device
-    -s                sum apparent length of matched files. Implies --leaf-order inode.
+    -s                sum apparent length of matched files. Only counts hardlinked files once. Does not follow symlinks. Implies --leaf-order inode.
     -V, --version     Prints version information
 
 OPTIONS:

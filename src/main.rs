@@ -27,6 +27,7 @@ use clap::{Arg, App};
 use platter_walk::*;
 use std::fs::FileType;
 use std::os::unix::fs::FileTypeExt;
+use std::os::unix::ffi::OsStrExt;
 
 
 #[derive(Debug, Error)]
@@ -46,6 +47,8 @@ enum FileTypeMatcher {
 }
 
 use FileTypeMatcher::*;
+use std::collections::HashSet;
+use std::os::linux::fs::MetadataExt;
 
 impl FileTypeMatcher {
     fn from(c : char) -> FileTypeMatcher {
@@ -85,7 +88,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
         .arg(Arg::with_name("ord").long("leaf-order").required(false).takes_value(true).possible_values(&["inode","content", "dentry"]).help("optimize order for listing/stat/reads"))
         .arg(Arg::with_name("type").long("type").required(false).takes_value(true).possible_values(&["f", "l", "d", "s","b","c", "p"]).help("filter type"))
         .arg(Arg::with_name("list").long("ls").required(false).takes_value(false).help("list files"))
-        .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of matched files. Implies --leaf-order inode."))
+        .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of matched files. Only counts hardlinked files once. Does not follow symlinks. Implies --leaf-order inode."))
         .arg(Arg::with_name("dirs").index(1).multiple(true).required(false).help("directories to traverse [default: cwd]"))
         .arg(Arg::with_name("prefetch").long("prefetch").takes_value(false).required(false).help("attempt to prefetch directory indices from underlying mount device. requires read permission on device"))
         .get_matches();
@@ -130,37 +133,51 @@ fn process_args() -> std::result::Result<Counts, CliError> {
     }
 
     let mut result = (0,0);
+    let mut size_visited = HashSet::new();
 
-    for entry in dir_scanner {
-        match entry  {
-            Ok(e) => {
-                if let Some(ref tf) = type_filter {
-                    if !tf.is(&e.file_type()) {
-                        continue;
-                    }
-                }
-
-                if list {
-                    println!("{}", e.path().to_string_lossy());
-                }
-
-                result.0 += 1;
-                if want_size {
-                    if e.file_type().is_symlink() {
-                        continue;
-                    }
-                    result.1 += match e.path().metadata() {
-                        Ok(m) => m.len(),
-                        Err(err) => {
-                            eprintln!("could not stat {}: {}", e.path().to_string_lossy(), err.to_string());
+    {
+        let stdout = std::io::stdout();
+        let mut stdout = stdout.lock();
+        for entry in dir_scanner {
+            match entry  {
+                Ok(e) => {
+                    if let Some(ref tf) = type_filter {
+                        if !tf.is(&e.file_type()) {
                             continue;
                         }
-                    };
+                    }
+
+                    if list {
+                        stdout.write_all(e.path().as_os_str().as_bytes())?;
+                        writeln!(stdout, "")?;
+                    }
+
+                    result.0 += 1;
+                    if want_size {
+                        if e.file_type().is_symlink() {
+                            continue;
+                        }
+                        result.1 += match e.path().metadata() {
+                            Ok(m) => {
+                                let file_id = (m.st_ino(), m.st_dev());
+                                // skip hardlinked files
+                                if !size_visited.insert(file_id) {
+                                    continue;
+                                }
+                                m.len()
+                            }
+                            Err(err) => {
+                                eprintln!("could not stat {}: {}", e.path().to_string_lossy(), err.to_string());
+                                continue;
+                            }
+                        };
+                    }
+                }
+                Err(e) => {
+                    writeln!(std::io::stderr(),"{}", e.description()).unwrap();
                 }
             }
-            Err(e) => {
-                writeln!(std::io::stderr(),"{}", e.description()).unwrap();
-            }
+
         }
 
     }
