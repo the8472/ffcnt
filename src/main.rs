@@ -20,7 +20,6 @@
 extern crate platter_walk;
 extern crate isatty;
 
-use std::error::Error;
 use std::io::Write;
 use std::path::Path;
 use clap::{Arg, App};
@@ -174,7 +173,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
                     }
                 }
                 Err(e) => {
-                    writeln!(std::io::stderr(),"{}", e.description()).unwrap();
+                    writeln!(std::io::stderr(),"{}", e).unwrap();
                 }
             }
 
@@ -201,7 +200,7 @@ fn main() {
             std::process::exit(0);
         }
         Err(e) => {
-            writeln!(std::io::stderr(),"{}", e.description()).unwrap();
+            writeln!(std::io::stderr(),"{}", e).unwrap();
             std::io::stderr().flush().unwrap();
             std::process::exit(1);
         }
