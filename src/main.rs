@@ -18,7 +18,6 @@
 #[macro_use] extern crate clap;
 #[macro_use] extern crate derive_error;
 extern crate platter_walk;
-extern crate isatty;
 
 use std::io::Write;
 use std::path::Path;
@@ -181,7 +180,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
 
     }
 
-    if !(list && isatty::stdout_isatty()) {
+    if !(list && atty::is(atty::Stream::Stdout)) {
         println!("files: {}", result.0);
     }
 
