@@ -31,7 +31,7 @@ debug = false
 
 [dependencies]
 clap = "2.20"
-derive-error = "0.0.4"
+derive-error = "0.0.5"
 atty = "0.2.14"
-platter-walk = "0.1.2"
+platter-walk = "0.1.3"
 

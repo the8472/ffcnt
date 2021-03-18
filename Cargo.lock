@@ -63,9 +63,9 @@ checksum = "e88b166b48e29667f5443df64df3c61dc07dc2b1a0b0d231800e07f09a33ecc1"
 
 [[package]]
 name = "cc"
-version = "1.0.66"
+version = "1.0.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c0496836a84f8d0495758516b8621a622beb77c0fed418570e50764093ced48"
+checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
 
 [[package]]
 name = "cfg-if"
@@ -99,9 +99,9 @@ dependencies = [
 
 [[package]]
 name = "derive-error"
-version = "0.0.4"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec098440b29ea3b1ece3e641bac424c19cf996779b623c9e0f2171495425c2c8"
+checksum = "eb6238eafbc141db51c6d0d599dde74224b28437c7cf7c3a1755e3e3e5e00806"
 dependencies = [
  "case",
  "quote",
@@ -145,9 +145,9 @@ checksum = "76f033c7ad61445c5b347c7382dd1237847eb1bce590fe50365dcb33d546be73"
 
 [[package]]
 name = "libc"
-version = "0.2.86"
+version = "0.2.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7282d924be3275cec7f6756ff4121987bc6481325397dde6ba3e7802b1a8b1c"
+checksum = "ba4aede83fc3617411dc6993bc8c70919750c1c257c6ca6a502aed6e0e2394ae"
 
 [[package]]
 name = "minilzo"
@@ -201,9 +201,9 @@ dependencies = [
 
 [[package]]
 name = "platter-walk"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0340c0cd269cbfd22b06946fef8d27b351fe7ec9f6e446e4369c712a76ab9fa"
+checksum = "67ec9aa7f1678386801cc14d6268f3f6b5d36b0fd7dadf3a3b55371c1e46e7d5"
 dependencies = [
  "btrfs2",
  "libc",
