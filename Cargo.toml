@@ -1,6 +1,6 @@
 [package]
 name = "ffcnt"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["The8472"]
 description = "Fast file counting on HDDs"
 keywords = ["linux", "cli"]
