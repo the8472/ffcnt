@@ -91,7 +91,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
         .arg(Arg::with_name("prefetch").long("prefetch").takes_value(false).required(false).help("attempt to prefetch directory indices from underlying mount device. requires read permission on device"))
         .get_matches();
 
-    let mut starting_points = matches.values_of_os("dirs").map(|it| it.map(Path::new).map(Path::to_owned).collect()).unwrap_or(vec![]);
+    let mut starting_points: Vec<_> = matches.values_of_os("dirs").map(|it| it.map(Path::new).map(Path::to_owned).collect()).unwrap_or_default();
     let want_size = matches.is_present("size");
     let list = matches.is_present("list");
     let prefetch = matches.is_present("prefetch");
@@ -126,7 +126,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
     }
 
     if let Some(ref tf) = type_filter {
-        let owned = tf.clone();
+        let owned = *tf;
         dir_scanner.set_prefilter(Box::new(move |_,ft| owned.is(ft)));
     }
 
@@ -147,7 +147,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
 
                     if list {
                         stdout.write_all(e.path().as_os_str().as_bytes())?;
-                        writeln!(stdout, "")?;
+                        writeln!(stdout)?;
                     }
 
                     result.0 += 1;
@@ -172,7 +172,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
                     }
                 }
                 Err(e) => {
-                    writeln!(std::io::stderr(),"{}", e).unwrap();
+                    eprintln!("{}", e);
                 }
             }
 
@@ -199,7 +199,7 @@ fn main() {
             std::process::exit(0);
         }
         Err(e) => {
-            writeln!(std::io::stderr(),"{}", e).unwrap();
+            eprintln!("{}", e);
             std::io::stderr().flush().unwrap();
             std::process::exit(1);
         }
